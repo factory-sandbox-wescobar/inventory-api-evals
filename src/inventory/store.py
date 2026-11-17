@@ -7,6 +7,7 @@ turns them into status codes.
 from __future__ import annotations
 
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 
@@ -94,3 +95,29 @@ class InventoryStore:
             updated = replace(current, quantity=new_quantity)
             self._items[sku] = updated
             return updated
+
+    def adjust_many(self, adjustments: Sequence[tuple[str, int]]) -> list[Item]:
+        """Apply `(sku, delta)` adjustments in order, all or nothing.
+
+        Raises NotFound for the first unknown SKU (this wins over any stock
+        problem), or InsufficientStock for the first adjustment that would take
+        a running quantity below zero. In both cases nothing is changed. The
+        same SKU may repeat; each check uses the running total. Returns the
+        updated items, one per distinct SKU, in order of first appearance.
+        """
+        with self._lock:
+            for sku, _ in adjustments:
+                if sku not in self._items:
+                    raise NotFound(sku)
+            quantities: dict[str, int] = {}
+            for sku, delta in adjustments:
+                new_quantity = quantities.get(sku, self._items[sku].quantity) + delta
+                if new_quantity < 0:
+                    raise InsufficientStock(sku)
+                quantities[sku] = new_quantity
+            updated = {
+                sku: replace(self._items[sku], quantity=quantity)
+                for sku, quantity in quantities.items()
+            }
+            self._items.update(updated)
+            return list(updated.values())
