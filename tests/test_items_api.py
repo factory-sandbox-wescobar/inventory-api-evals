@@ -30,6 +30,26 @@ def test_create_duplicate_sku_is_a_conflict(client: TestClient, widget: dict) ->
     assert response.status_code == 409
 
 
+def test_create_stores_the_sku_upper_cased(client: TestClient) -> None:
+    response = client.post(
+        "/items", json={"sku": "ab-100", "name": "Lower", "unit_price_pence": 1}, headers=AUTH
+    )
+
+    assert response.status_code == 201
+    assert response.json()["sku"] == "AB-100"
+
+
+def test_create_duplicate_sku_in_another_case_is_a_conflict(
+    client: TestClient, widget: dict
+) -> None:
+    response = client.post(
+        "/items", json={"sku": "wid-001", "name": "Other", "unit_price_pence": 1}, headers=AUTH
+    )
+
+    assert response.status_code == 409
+    assert len(client.get("/items").json()) == 1
+
+
 def test_create_rejects_a_malformed_sku(client: TestClient) -> None:
     response = client.post(
         "/items", json={"sku": "no spaces!", "name": "Bad", "unit_price_pence": 1}, headers=AUTH
@@ -47,6 +67,13 @@ def test_create_rejects_negative_quantity_and_price(client: TestClient) -> None:
 
 def test_get_item(client: TestClient, widget: dict) -> None:
     response = client.get("/items/WID-001")
+
+    assert response.status_code == 200
+    assert response.json() == widget
+
+
+def test_get_item_ignores_the_case_of_the_sku(client: TestClient, widget: dict) -> None:
+    response = client.get("/items/wid-001")
 
     assert response.status_code == 200
     assert response.json() == widget
@@ -80,6 +107,13 @@ def test_update_changes_only_the_fields_given(client: TestClient, widget: dict) 
     assert response.json() == {**widget, "name": "Blue widget", "unit_price_pence": 300}
 
 
+def test_update_ignores_the_case_of_the_sku(client: TestClient, widget: dict) -> None:
+    response = client.patch("/items/wid-001", json={"name": "Blue widget"}, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == {**widget, "name": "Blue widget"}
+
+
 def test_update_unknown_item_is_not_found(client: TestClient) -> None:
     response = client.patch("/items/NOPE-404", json={"name": "x"}, headers=AUTH)
 
@@ -92,12 +126,27 @@ def test_delete_removes_the_item(client: TestClient, widget: dict) -> None:
     assert client.delete("/items/WID-001", headers=AUTH).status_code == 404
 
 
+def test_delete_ignores_the_case_of_the_sku(client: TestClient, widget: dict) -> None:
+    assert client.delete("/items/wid-001", headers=AUTH).status_code == 204
+    assert client.get("/items/WID-001").status_code == 404
+
+
 def test_adjust_adds_and_removes_stock(client: TestClient, widget: dict) -> None:
     added = client.post("/items/WID-001/adjust", json={"delta": 5, "reason": "delivery"}, headers=AUTH)
     removed = client.post("/items/WID-001/adjust", json={"delta": -12, "reason": "order"}, headers=AUTH)
 
     assert added.json()["quantity"] == 15
     assert removed.json()["quantity"] == 3
+
+
+def test_adjust_ignores_the_case_of_the_sku(client: TestClient, widget: dict) -> None:
+    response = client.post(
+        "/items/wid-001/adjust", json={"delta": 5, "reason": "delivery"}, headers=AUTH
+    )
+
+    assert response.status_code == 200
+    assert response.json()["sku"] == "WID-001"
+    assert response.json()["quantity"] == 15
 
 
 def test_adjust_below_zero_is_refused_and_changes_nothing(
