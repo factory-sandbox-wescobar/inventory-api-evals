@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 from inventory.store import Item
 
 SKU_PATTERN = r"^[A-Za-z0-9-]{3,20}$"
 
+# Stripped before the length checks, so "   " is rejected and the limit applies to the stripped name.
+ItemName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
 
 class ItemCreate(BaseModel):
     sku: str = Field(pattern=SKU_PATTERN)
-    name: str = Field(min_length=1, max_length=100)
+    name: ItemName
     category: str = Field(default="general", min_length=1, max_length=40)
     quantity: int = Field(default=0, ge=0)
     reorder_level: int = Field(default=0, ge=0)
@@ -21,7 +26,7 @@ class ItemCreate(BaseModel):
 class ItemUpdate(BaseModel):
     """Fields left out are not changed."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=100)
+    name: ItemName | None = None
     category: str | None = Field(default=None, min_length=1, max_length=40)
     quantity: int | None = None
     reorder_level: int | None = Field(default=None, ge=0)
