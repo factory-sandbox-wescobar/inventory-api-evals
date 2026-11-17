@@ -7,9 +7,10 @@ from fastapi import Depends, FastAPI, HTTPException, Response, status
 from inventory.auth import api_key_checker, configured_key
 from inventory.models import Adjustment, ItemCreate, ItemOut, ItemUpdate
 from inventory.store import DuplicateSku, InsufficientStock, InventoryStore, Item, NotFound
+from inventory.store_protocol import Store
 
 
-def create_app(api_key: str | None = None, store: InventoryStore | None = None) -> FastAPI:
+def create_app(api_key: str | None = None, store: Store | None = None) -> FastAPI:
     """Build the app. `api_key` defaults to the INVENTORY_API_KEY environment variable."""
     store = store if store is not None else InventoryStore()
     require_key = Depends(api_key_checker(api_key if api_key is not None else configured_key()))
