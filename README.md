@@ -16,6 +16,7 @@ These are how the service is meant to behave. Where the code disagrees, the code
 - **Low stock:** an item is low on stock when its quantity is at or below its reorder level.
 - **Adjustments** add to or remove from the quantity, with a reason. An adjustment that would take the quantity below zero is refused and changes nothing.
 - **Writes** (create, update, delete, adjust) need the `X-API-Key` header to match the `INVENTORY_API_KEY` environment variable. Reads need no key. With no key set, every write is refused.
+- **Versions:** every item has a `version`, starting at 1 and going up by one on every update or adjustment. `GET /items/{sku}` returns it as the `ETag` header (for example `"3"`). `PATCH` and `adjust` accept an `If-Match` header; if it is present and does not match the current version, the request is refused with 412 and changes nothing. The check and the change happen together. Without `If-Match` (or with `*`) they behave as before.
 
 ## Endpoints
 
@@ -23,12 +24,12 @@ These are how the service is meant to behave. Where the code disagrees, the code
 |---|---|---|---|
 | `GET /items?category=` | no | List items sorted by SKU, optionally in one category | 200 |
 | `POST /items` | yes | Create an item | 201, 409 SKU exists, 422 invalid |
-| `GET /items/{sku}` | no | One item | 200, 404 |
-| `PATCH /items/{sku}` | yes | Change some of an item's fields | 200, 404, 422 |
+| `GET /items/{sku}` | no | One item, with an `ETag` header | 200, 404 |
+| `PATCH /items/{sku}` | yes | Change some of an item's fields; optional `If-Match` | 200, 404, 412 version mismatch, 422 |
 | `DELETE /items/{sku}` | yes | Remove an item | 204, 404 |
-| `POST /items/{sku}/adjust` | yes | Body `{"delta": -2, "reason": "order 1182"}` | 200, 404, 409 not enough stock, 422 |
+| `POST /items/{sku}/adjust` | yes | Body `{"delta": -2, "reason": "order 1182"}`; optional `If-Match` | 200, 404, 409 not enough stock, 412 version mismatch, 422 |
 
-Every item in a response has `sku`, `name`, `category`, `quantity`, `reorder_level`, `unit_price_pence` and `low_stock`. Errors are FastAPI's usual `{"detail": ...}`. Interactive docs are at `/docs` while the service runs.
+Every item in a response has `sku`, `name`, `category`, `quantity`, `reorder_level`, `unit_price_pence`, `low_stock` and `version`. Errors are FastAPI's usual `{"detail": ...}`. Interactive docs are at `/docs` while the service runs.
 
 ## Run it
 
