@@ -41,6 +41,7 @@ class ItemOut(BaseModel):
     reorder_level: int
     unit_price_pence: int
     low_stock: bool
+    version: int
 
     @classmethod
     def from_item(cls, item: Item) -> ItemOut:
@@ -52,4 +53,5 @@ class ItemOut(BaseModel):
             reorder_level=item.reorder_level,
             unit_price_pence=item.unit_price_pence,
             low_stock=item.low_stock,
+            version=item.version,
         )

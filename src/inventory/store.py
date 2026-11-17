@@ -22,6 +22,10 @@ class InsufficientStock(Exception):
     """An adjustment would take the quantity below zero."""
 
 
+class VersionMismatch(Exception):
+    """The caller expected a different version of the item than the current one."""
+
+
 @dataclass(frozen=True)
 class Item:
     sku: str
@@ -30,6 +34,7 @@ class Item:
     quantity: int
     reorder_level: int
     unit_price_pence: int
+    version: int = 1
 
     @property
     def low_stock(self) -> bool:
@@ -61,16 +66,23 @@ class InventoryStore:
         with self._lock:
             if item.sku in self._items:
                 raise DuplicateSku(item.sku)
+            item = replace(item, version=1)
             self._items[item.sku] = item
             return item
 
-    def update(self, sku: str, **changes: object) -> Item:
+    def update(
+        self, sku: str, *, expected_version: int | None = None, **changes: object
+    ) -> Item:
+        """Change fields. If `expected_version` is given it must match the current
+        version, checked under the same lock as the change."""
         with self._lock:
             try:
                 current = self._items[sku]
             except KeyError:
                 raise NotFound(sku) from None
-            updated = replace(current, **changes)
+            if expected_version is not None and expected_version != current.version:
+                raise VersionMismatch(sku)
+            updated = replace(current, **changes, version=current.version + 1)
             self._items[sku] = updated
             return updated
 
@@ -81,16 +93,22 @@ class InventoryStore:
             except KeyError:
                 raise NotFound(sku) from None
 
-    def adjust(self, sku: str, delta: int) -> Item:
-        """Add `delta` (negative to remove) to an item's quantity."""
+    def adjust(self, sku: str, delta: int, *, expected_version: int | None = None) -> Item:
+        """Add `delta` (negative to remove) to an item's quantity.
+
+        If `expected_version` is given it must match the current version, checked
+        under the same lock as the change.
+        """
         with self._lock:
             try:
                 current = self._items[sku]
             except KeyError:
                 raise NotFound(sku) from None
+            if expected_version is not None and expected_version != current.version:
+                raise VersionMismatch(sku)
             new_quantity = current.quantity + delta
             if new_quantity < 0:
                 raise InsufficientStock(sku)
-            updated = replace(current, quantity=new_quantity)
+            updated = replace(current, quantity=new_quantity, version=current.version + 1)
             self._items[sku] = updated
             return updated

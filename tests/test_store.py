@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from inventory.store import DuplicateSku, InsufficientStock, InventoryStore, Item, NotFound
+from inventory.store import (
+    DuplicateSku,
+    InsufficientStock,
+    InventoryStore,
+    Item,
+    NotFound,
+    VersionMismatch,
+)
 
 
 def make_item(sku: str = "WID-001", quantity: int = 10) -> Item:
@@ -51,3 +58,33 @@ def test_missing_items_raise_not_found() -> None:
     ):
         with pytest.raises(NotFound):
             call()
+
+
+def test_every_change_bumps_the_version_by_one() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+
+    assert store.update("WID-001", name="Blue").version == 2
+    assert store.adjust("WID-001", 1).version == 3
+
+
+def test_a_stale_expected_version_changes_nothing() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+    store.update("WID-001", name="Blue")
+
+    with pytest.raises(VersionMismatch):
+        store.update("WID-001", expected_version=1, name="Red")
+    with pytest.raises(VersionMismatch):
+        store.adjust("WID-001", 5, expected_version=1)
+
+    item = store.get("WID-001")
+    assert (item.name, item.quantity, item.version) == ("Blue", 10, 2)
+
+
+def test_a_matching_expected_version_applies_the_change() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+
+    assert store.update("WID-001", expected_version=1, name="Blue").version == 2
+    assert store.adjust("WID-001", 1, expected_version=2).version == 3
