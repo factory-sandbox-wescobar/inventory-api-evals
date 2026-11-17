@@ -37,7 +37,10 @@ class Item:
 
 
 class InventoryStore:
-    """Items by SKU, safe to use from several request threads."""
+    """Items by SKU, safe to use from several request threads.
+
+    SKUs are case-insensitive: they are stored and looked up upper-cased.
+    """
 
     def __init__(self) -> None:
         self._items: dict[str, Item] = {}
@@ -51,6 +54,7 @@ class InventoryStore:
         return sorted(items, key=lambda item: item.sku)
 
     def get(self, sku: str) -> Item:
+        sku = sku.upper()
         with self._lock:
             try:
                 return self._items[sku]
@@ -58,6 +62,7 @@ class InventoryStore:
                 raise NotFound(sku) from None
 
     def create(self, item: Item) -> Item:
+        item = replace(item, sku=item.sku.upper())
         with self._lock:
             if item.sku in self._items:
                 raise DuplicateSku(item.sku)
@@ -65,6 +70,7 @@ class InventoryStore:
             return item
 
     def update(self, sku: str, **changes: object) -> Item:
+        sku = sku.upper()
         with self._lock:
             try:
                 current = self._items[sku]
@@ -75,6 +81,7 @@ class InventoryStore:
             return updated
 
     def delete(self, sku: str) -> None:
+        sku = sku.upper()
         with self._lock:
             try:
                 del self._items[sku]
@@ -83,6 +90,7 @@ class InventoryStore:
 
     def adjust(self, sku: str, delta: int) -> Item:
         """Add `delta` (negative to remove) to an item's quantity."""
+        sku = sku.upper()
         with self._lock:
             try:
                 current = self._items[sku]

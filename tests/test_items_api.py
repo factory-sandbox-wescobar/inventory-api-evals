@@ -30,6 +30,44 @@ def test_create_duplicate_sku_is_a_conflict(client: TestClient, widget: dict) ->
     assert response.status_code == 409
 
 
+def test_create_stores_the_sku_upper_cased(client: TestClient) -> None:
+    response = client.post(
+        "/items", json={"sku": "ab-100", "name": "Lower", "unit_price_pence": 1}, headers=AUTH
+    )
+
+    assert response.status_code == 201
+    assert response.json()["sku"] == "AB-100"
+    assert [item["sku"] for item in client.get("/items").json()] == ["AB-100"]
+
+
+def test_create_duplicate_sku_in_another_case_is_a_conflict(
+    client: TestClient, widget: dict
+) -> None:
+    response = client.post(
+        "/items", json={"sku": "wid-001", "name": "Other", "unit_price_pence": 1}, headers=AUTH
+    )
+
+    assert response.status_code == 409
+
+
+def test_item_routes_ignore_the_case_of_the_sku(client: TestClient, widget: dict) -> None:
+    got = client.get("/items/wid-001")
+    patched = client.patch("/items/wid-001", json={"name": "Blue widget"}, headers=AUTH)
+    adjusted = client.post(
+        "/items/wid-001/adjust", json={"delta": 1, "reason": "delivery"}, headers=AUTH
+    )
+
+    assert got.status_code == 200
+    assert got.json()["sku"] == "WID-001"
+    assert patched.status_code == 200
+    assert patched.json()["sku"] == "WID-001"
+    assert adjusted.status_code == 200
+    assert adjusted.json()["sku"] == "WID-001"
+    assert adjusted.json()["quantity"] == widget["quantity"] + 1
+    assert client.delete("/items/wid-001", headers=AUTH).status_code == 204
+    assert client.get("/items/WID-001").status_code == 404
+
+
 def test_create_rejects_a_malformed_sku(client: TestClient) -> None:
     response = client.post(
         "/items", json={"sku": "no spaces!", "name": "Bad", "unit_price_pence": 1}, headers=AUTH
