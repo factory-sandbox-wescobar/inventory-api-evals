@@ -33,7 +33,8 @@ class Item:
 
     @property
     def low_stock(self) -> bool:
-        return self.quantity < self.reorder_level
+        # A reorder level of 0 means the item has no reorder level.
+        return self.reorder_level > 0 and self.quantity <= self.reorder_level
 
 
 class InventoryStore:

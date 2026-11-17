@@ -13,7 +13,7 @@ These are how the service is meant to behave. Where the code disagrees, the code
 - **Category:** 1 to 40 characters. Defaults to `general`.
 - **Quantity** and **reorder level** are whole numbers, never negative. Quantity defaults to 0.
 - **Price** is `unit_price_pence`, a whole number of pence, never negative. Money is never a float.
-- **Low stock:** an item is low on stock when its quantity is at or below its reorder level.
+- **Low stock:** an item is low on stock when its quantity is at or below its reorder level. A reorder level of 0 means the item has no reorder level, so it is never low on stock.
 - **Adjustments** add to or remove from the quantity, with a reason. An adjustment that would take the quantity below zero is refused and changes nothing.
 - **Writes** (create, update, delete, adjust) need the `X-API-Key` header to match the `INVENTORY_API_KEY` environment variable. Reads need no key. With no key set, every write is refused.
 
