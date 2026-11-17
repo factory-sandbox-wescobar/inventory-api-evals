@@ -19,6 +19,7 @@ def test_create_item_returns_it_with_defaults(client: TestClient) -> None:
         "reorder_level": 0,
         "unit_price_pence": 5,
         "low_stock": False,
+        "version": 1,
     }
 
 
@@ -52,6 +53,14 @@ def test_get_item(client: TestClient, widget: dict) -> None:
     assert response.json() == widget
 
 
+def test_get_item_returns_its_version_as_an_etag(client: TestClient, widget: dict) -> None:
+    assert client.get("/items/WID-001").headers["ETag"] == '"1"'
+
+    client.patch("/items/WID-001", json={"name": "Blue widget"}, headers=AUTH)
+
+    assert client.get("/items/WID-001").headers["ETag"] == '"2"'
+
+
 def test_get_unknown_item_is_not_found(client: TestClient) -> None:
     assert client.get("/items/NOPE-404").status_code == 404
 
@@ -77,13 +86,51 @@ def test_update_changes_only_the_fields_given(client: TestClient, widget: dict) 
     )
 
     assert response.status_code == 200
-    assert response.json() == {**widget, "name": "Blue widget", "unit_price_pence": 300}
+    assert response.json() == {
+        **widget,
+        "name": "Blue widget",
+        "unit_price_pence": 300,
+        "version": 2,
+    }
 
 
 def test_update_unknown_item_is_not_found(client: TestClient) -> None:
     response = client.patch("/items/NOPE-404", json={"name": "x"}, headers=AUTH)
 
     assert response.status_code == 404
+
+
+def test_update_with_matching_if_match_succeeds(client: TestClient, widget: dict) -> None:
+    response = client.patch(
+        "/items/WID-001", json={"name": "Blue"}, headers={**AUTH, "If-Match": '"1"'}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["version"] == 2
+
+
+def test_update_with_stale_if_match_is_refused_and_changes_nothing(
+    client: TestClient, widget: dict
+) -> None:
+    client.patch("/items/WID-001", json={"name": "First"}, headers=AUTH)
+
+    response = client.patch(
+        "/items/WID-001", json={"name": "Second"}, headers={**AUTH, "If-Match": '"1"'}
+    )
+
+    assert response.status_code == 412
+    item = client.get("/items/WID-001").json()
+    assert item["name"] == "First"
+    assert item["version"] == 2
+
+
+def test_update_with_garbage_if_match_is_refused(client: TestClient, widget: dict) -> None:
+    response = client.patch(
+        "/items/WID-001", json={"name": "x"}, headers={**AUTH, "If-Match": "banana"}
+    )
+
+    assert response.status_code == 412
+    assert client.get("/items/WID-001").json()["version"] == 1
 
 
 def test_delete_removes_the_item(client: TestClient, widget: dict) -> None:
@@ -98,6 +145,35 @@ def test_adjust_adds_and_removes_stock(client: TestClient, widget: dict) -> None
 
     assert added.json()["quantity"] == 15
     assert removed.json()["quantity"] == 3
+    assert removed.json()["version"] == 3
+
+
+def test_adjust_with_matching_if_match_succeeds(client: TestClient, widget: dict) -> None:
+    response = client.post(
+        "/items/WID-001/adjust",
+        json={"delta": 1, "reason": "delivery"},
+        headers={**AUTH, "If-Match": '"1"'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["version"] == 2
+
+
+def test_adjust_with_stale_if_match_is_refused_and_changes_nothing(
+    client: TestClient, widget: dict
+) -> None:
+    client.post("/items/WID-001/adjust", json={"delta": 1, "reason": "delivery"}, headers=AUTH)
+
+    response = client.post(
+        "/items/WID-001/adjust",
+        json={"delta": 5, "reason": "delivery"},
+        headers={**AUTH, "If-Match": '"1"'},
+    )
+
+    assert response.status_code == 412
+    item = client.get("/items/WID-001").json()
+    assert item["quantity"] == 11
+    assert item["version"] == 2
 
 
 def test_adjust_below_zero_is_refused_and_changes_nothing(
@@ -108,7 +184,9 @@ def test_adjust_below_zero_is_refused_and_changes_nothing(
     )
 
     assert response.status_code == 409
-    assert client.get("/items/WID-001").json()["quantity"] == 10
+    item = client.get("/items/WID-001").json()
+    assert item["quantity"] == 10
+    assert item["version"] == 1
 
 
 def test_adjust_needs_a_reason(client: TestClient, widget: dict) -> None:

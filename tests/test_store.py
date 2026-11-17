@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from inventory.store import DuplicateSku, InsufficientStock, InventoryStore, Item, NotFound
+from inventory.store import (
+    DuplicateSku,
+    InsufficientStock,
+    InventoryStore,
+    Item,
+    NotFound,
+    VersionMismatch,
+)
 
 
 def make_item(sku: str = "WID-001", quantity: int = 10) -> Item:
@@ -38,6 +45,26 @@ def test_adjust_refuses_to_go_below_zero() -> None:
     with pytest.raises(InsufficientStock):
         store.adjust("WID-001", -3)
     assert store.get("WID-001").quantity == 2
+    assert store.get("WID-001").version == 1
+
+
+def test_every_change_bumps_the_version() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+
+    assert store.update("WID-001", name="x").version == 2
+    assert store.adjust("WID-001", 1).version == 3
+
+
+def test_stale_expected_version_changes_nothing() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+
+    with pytest.raises(VersionMismatch):
+        store.update("WID-001", expected_version=2, name="x")
+    with pytest.raises(VersionMismatch):
+        store.adjust("WID-001", 1, expected_version=2)
+    assert store.get("WID-001") == make_item()
 
 
 def test_missing_items_raise_not_found() -> None:
