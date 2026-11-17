@@ -80,6 +80,15 @@ def test_update_changes_only_the_fields_given(client: TestClient, widget: dict) 
     assert response.json() == {**widget, "name": "Blue widget", "unit_price_pence": 300}
 
 
+def test_update_rejects_negative_quantity_and_changes_nothing(
+    client: TestClient, widget: dict
+) -> None:
+    response = client.patch("/items/WID-001", json={"quantity": -5}, headers=AUTH)
+
+    assert response.status_code == 422
+    assert client.get("/items/WID-001").json() == widget
+
+
 def test_update_unknown_item_is_not_found(client: TestClient) -> None:
     response = client.patch("/items/NOPE-404", json={"name": "x"}, headers=AUTH)
 
