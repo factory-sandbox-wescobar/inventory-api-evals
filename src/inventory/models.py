@@ -33,6 +33,12 @@ class Adjustment(BaseModel):
     reason: str = Field(min_length=1, max_length=200)
 
 
+class BatchAdjustment(Adjustment):
+    """One entry in a batch: an adjustment for a named SKU."""
+
+    sku: str = Field(pattern=SKU_PATTERN)
+
+
 class ItemOut(BaseModel):
     sku: str
     name: str
