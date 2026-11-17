@@ -37,7 +37,11 @@ class Item:
 
 
 class InventoryStore:
-    """Items by SKU, safe to use from several request threads."""
+    """Items by SKU, safe to use from several request threads.
+
+    SKUs are case-insensitive: they are kept upper-cased, and every lookup
+    upper-cases the SKU it is given.
+    """
 
     def __init__(self) -> None:
         self._items: dict[str, Item] = {}
@@ -53,11 +57,12 @@ class InventoryStore:
     def get(self, sku: str) -> Item:
         with self._lock:
             try:
-                return self._items[sku]
+                return self._items[sku.upper()]
             except KeyError:
                 raise NotFound(sku) from None
 
     def create(self, item: Item) -> Item:
+        item = replace(item, sku=item.sku.upper())
         with self._lock:
             if item.sku in self._items:
                 raise DuplicateSku(item.sku)
@@ -65,32 +70,34 @@ class InventoryStore:
             return item
 
     def update(self, sku: str, **changes: object) -> Item:
+        key = sku.upper()
         with self._lock:
             try:
-                current = self._items[sku]
+                current = self._items[key]
             except KeyError:
                 raise NotFound(sku) from None
             updated = replace(current, **changes)
-            self._items[sku] = updated
+            self._items[key] = updated
             return updated
 
     def delete(self, sku: str) -> None:
         with self._lock:
             try:
-                del self._items[sku]
+                del self._items[sku.upper()]
             except KeyError:
                 raise NotFound(sku) from None
 
     def adjust(self, sku: str, delta: int) -> Item:
         """Add `delta` (negative to remove) to an item's quantity."""
+        key = sku.upper()
         with self._lock:
             try:
-                current = self._items[sku]
+                current = self._items[key]
             except KeyError:
                 raise NotFound(sku) from None
             new_quantity = current.quantity + delta
             if new_quantity < 0:
                 raise InsufficientStock(sku)
             updated = replace(current, quantity=new_quantity)
-            self._items[sku] = updated
+            self._items[key] = updated
             return updated

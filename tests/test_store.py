@@ -31,6 +31,34 @@ def test_create_refuses_a_duplicate_sku() -> None:
         store.create(make_item())
 
 
+def test_create_stores_the_sku_upper_cased() -> None:
+    store = InventoryStore()
+    created = store.create(make_item(sku="wid-001"))
+
+    assert created.sku == "WID-001"
+    assert store.get("WID-001").sku == "WID-001"
+
+
+def test_create_refuses_a_duplicate_sku_in_another_case() -> None:
+    store = InventoryStore()
+    store.create(make_item(sku="AB-100"))
+
+    with pytest.raises(DuplicateSku):
+        store.create(make_item(sku="ab-100"))
+
+
+def test_lookups_ignore_the_case_of_the_sku() -> None:
+    store = InventoryStore()
+    store.create(make_item())
+
+    assert store.get("wid-001").sku == "WID-001"
+    assert store.update("wid-001", name="Blue").sku == "WID-001"
+    assert store.adjust("Wid-001", 1).quantity == 11
+    store.delete("wid-001")
+    with pytest.raises(NotFound):
+        store.get("WID-001")
+
+
 def test_adjust_refuses_to_go_below_zero() -> None:
     store = InventoryStore()
     store.create(make_item(quantity=2))
