@@ -1,0 +1,10 @@
+# Code owners review every change to a protected path (.factory/protected-paths.txt).
+# Replace OWNER with the GitHub org that holds this repo, and create the team.
+# This file is itself a protected path.
+
+/.github/                 @factory-sandbox-wescobar/maintainers
+/.factory/                @factory-sandbox-wescobar/maintainers
+/CODEOWNERS               @factory-sandbox-wescobar/maintainers
+/pyproject.toml           @factory-sandbox-wescobar/maintainers
+/uv.lock                  @factory-sandbox-wescobar/maintainers
+/src/inventory/auth.py    @factory-sandbox-wescobar/maintainers

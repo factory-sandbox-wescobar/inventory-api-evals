@@ -1,0 +1,32 @@
+# Runs the test suite on every pull request to main and on every push to main.
+# The job's check name is "tests"; the main ruleset requires it.
+# This file is a protected path (.factory/protected-paths.txt).
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.4"
+      - name: Run tests
+        run: uv run --python 3.12 --locked --extra test pytest

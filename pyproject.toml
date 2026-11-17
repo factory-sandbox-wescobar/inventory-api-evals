@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "inventory-api"
+version = "0.1.0"
+description = "A small stock inventory HTTP API."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.12",
+    "pydantic==2.11.3",
+    "uvicorn==0.34.2",
+]
+
+[project.optional-dependencies]
+test = [
+    "httpx==0.28.1",
+    "pytest==8.3.5",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/inventory"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

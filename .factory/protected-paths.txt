@@ -1,0 +1,22 @@
+# Protected paths: a change to any of these always raises the gate's risk score,
+# and the change waits for a code owner's approval (CODEOWNERS).
+# Changing this file is itself risky: it is on the list.
+#
+# Format: one path per line, relative to the repository root. A path ending in
+# "/" covers everything under that folder; any other path is one exact file.
+# Blank lines and lines starting with "#" are ignored. No globs.
+
+# CI workflows and repository settings
+.github/
+CODEOWNERS
+
+# The factory's own configuration, including this list and the seeded issues
+.factory/
+
+# Dependency manifests
+pyproject.toml
+uv.lock
+requirements.txt
+
+# Auth code
+src/inventory/auth.py
