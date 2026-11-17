@@ -9,6 +9,8 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, replace
 
+from inventory.store_protocol import Store
+
 
 class NotFound(Exception):
     """No item has this SKU."""
@@ -36,7 +38,7 @@ class Item:
         return self.quantity < self.reorder_level
 
 
-class InventoryStore:
+class InventoryStore(Store):
     """Items by SKU, safe to use from several request threads."""
 
     def __init__(self) -> None:
