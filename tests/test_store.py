@@ -51,3 +51,20 @@ def test_missing_items_raise_not_found() -> None:
     ):
         with pytest.raises(NotFound):
             call()
+
+
+@pytest.mark.parametrize(
+    ("quantity", "expected"),
+    [(2, True), (3, True), (4, False)],
+)
+def test_low_stock_is_at_or_below_the_reorder_level(quantity: int, expected: bool) -> None:
+    item = Item(
+        sku="WID-001",
+        name="Widget",
+        category="parts",
+        quantity=quantity,
+        reorder_level=3,
+        unit_price_pence=100,
+    )
+
+    assert item.low_stock is expected

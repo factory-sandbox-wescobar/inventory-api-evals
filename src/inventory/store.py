@@ -33,7 +33,7 @@ class Item:
 
     @property
     def low_stock(self) -> bool:
-        return self.quantity < self.reorder_level
+        return self.quantity <= self.reorder_level
 
 
 class InventoryStore:
