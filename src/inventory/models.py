@@ -23,7 +23,7 @@ class ItemUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     category: str | None = Field(default=None, min_length=1, max_length=40)
-    quantity: int | None = None
+    quantity: int | None = Field(default=None, ge=0)
     reorder_level: int | None = Field(default=None, ge=0)
     unit_price_pence: int | None = Field(default=None, ge=0)
 
